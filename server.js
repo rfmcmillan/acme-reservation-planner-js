@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-const { STRING, ARRAY, FLOAT } = Sequelize;
+const { STRING, ARRAY, FLOAT, DATE } = Sequelize;
 const conn = new Sequelize(
   process.env.DATABASE_URL || 'postgres://localhost/acme_db'
 );
@@ -121,7 +121,12 @@ const User = conn.define('user', {
     type: STRING,
   },
 });
-const Reservation = conn.define('reservation', {});
+const Reservation = conn.define('reservation', {
+  time: {
+    type: STRING,
+    defaultValue: '7:00 PM',
+  },
+});
 const Restaurant = conn.define('restaurant', {
   name: {
     type: STRING,
@@ -143,6 +148,8 @@ const path = require('path');
 app.use(require('body-parser').json());
 
 app.use('/dist', express.static(path.join(__dirname, 'dist')));
+
+app.use(require('method-override')('_method'));
 
 app.get('/', (req, res, next) =>
   res.sendFile(path.join(__dirname, 'index.html'))
@@ -167,7 +174,10 @@ app.get('/api/restaurants', async (req, res, next) => {
 app.get('/api/users/:userId/reservations', async (req, res, next) => {
   try {
     res.send(
-      await Reservation.findAll({ where: { userId: req.params.userId } })
+      await Reservation.findAll({
+        where: { userId: req.params.userId },
+        include: [Restaurant],
+      })
     );
   } catch (ex) {
     next(ex);
@@ -176,14 +186,12 @@ app.get('/api/users/:userId/reservations', async (req, res, next) => {
 
 app.post('/api/users/:userId/reservations', async (req, res, next) => {
   try {
-    res
-      .status(201)
-      .send(
-        await Reservation.create({
-          userId: req.params.userId,
-          restaurantId: req.body.restaurantId,
-        })
-      );
+    res.status(201).send(
+      await Reservation.create({
+        userId: req.params.userId,
+        restaurantId: req.body.restaurantId,
+      })
+    );
   } catch (ex) {
     next(ex);
   }
@@ -211,3 +219,5 @@ const init = async () => {
 };
 
 init();
+
+// module.exports = { models: { Reservation } };
